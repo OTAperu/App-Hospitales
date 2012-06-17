@@ -1,0 +1,86 @@
+!!!
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/style.css')
+    script(type='text/javascript', src='http://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js')
+    script(type='text/javascript', src='http://maps.google.com/maps/api/js?sensor=true')
+    script(type='text/javascript', src='/javascripts/gmaps.js')
+    script(type='text/javascript')
+      var map,
+      mlat = -12.043333,
+      mlng = -77.028333;
+      $(document).ready(function() {
+        GMaps.geolocate({
+          success: function(position) {
+            mlat = position.coords.latitude;
+            mlng = position.coords.longitude;
+          },
+          error: function(error) {
+            alert('la geolocalizacion fallo: '+error.message);
+          },
+          not_supported: function() {
+            alert("El browser no soporta geolocalizar, indique su punto manualmente");
+          },
+          always: function() {
+            showData();
+          }
+        });
+        map = new GMaps({
+          div: '#map',
+          lat: mlat,
+          lng: mlng
+        });
+        map.addMarker({
+          lat: mlat,
+          lng: mlng,
+          draggable: true,
+          dragend: function(e) {
+            mlat = e.position.lat();
+            mlng = e.position.lng();
+            showData();
+          }
+        });
+
+        function getContent(item) {
+          var info = '<a style="font-weight: bold; font-size: 120%" target="_blank" href="https://foursquare.com/venue/' + item.id + '">' + item.name + '</a><br />';
+          var loc = item.location;
+          if (!loc.address && !loc.crossStreet)
+            info += 'Direccion no disponible';
+          else
+            info += (loc.address ? loc.address : '') + (loc.crossStreet ? ' ('+loc.crossStreet+')' : '' );
+          info += '<br />Distancia: '+loc.distance+' metros.';
+          if (fono = item.contact.phone) { //formattedPhone
+            info += '<br /><a href="tel:'+fono+'">Llamar: '+ fono +'</a>';
+          }
+          return info;
+        }
+
+        function showData() {
+          map.markers.splice(1,map.markers.length); //Eliminar marcadores anteriores menos el rojo
+          $.getJSON("geo.json", {
+            lat: mlat,
+            lng: mlng
+          }, function (results) {
+            if (results.meta.code != 200) { alert("Error"); return false; }
+            var response = results.response;
+            for (var j = 0; j < response.venues.length; j++) {
+              var item = response.venues[j];
+              map.addMarker({
+                lat: item.location.lat,
+                lng: item.location.lng,
+                icon: item.categories[0].icon.prefix + "bg_32.png",
+                title: item.name,
+                infoWindow: {
+                  content: getContent(item)
+                }
+              });
+            }
+            map.fitZoom();
+          }, function (err) {
+            alert(err.error);
+          });
+        }
+      });
+  body
+    #map
